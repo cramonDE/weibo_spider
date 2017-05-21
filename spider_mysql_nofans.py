@@ -79,29 +79,35 @@ def LoginWeibo(username, password):
 #********************************************************************************
 
 def GetSearchContent(key):
-    driver.get("http://s.weibo.com/")
+    # driver.get("http://s.weibo.com/")
 
 
-    # driver.get("http://s.weibo.com/weibo/%25E5%2593%2588%25E5%25B0%2594%25E6%25BB%25A8%25E5%25A4%25A9%25E4%25BB%25B7%25E9%25B1%25BC&page=40")
+    driver.get("http://s.weibo.com/weibo/%25E5%2593%2588%25E5%25B0%2594%25E6%25BB%25A8%25E5%25A4%25A9%25E4%25BB%25B7%25E9%25B1%25BC&nodup=1&page=49")
     # driver.get("")
-    driver.set_page_load_timeout(2.5)
+
+
+    # driver.set_page_load_timeout(3)
 
 
 
 
     # 输入关键词并点击搜索
+    #
+    # item_inp = driver.find_element_by_xpath("//input[@class='searchInp_form']")
+    # item_inp.send_keys(key.decode('utf-8'))
+    #
+    # searchBtn = driver.find_element_by_xpath("//a[@class='searchBtn']")
+    # searchBtn.click()    #采用点击回车直接搜索
 
-    item_inp = driver.find_element_by_xpath("//input[@class='searchInp_form']")
-    item_inp.send_keys(key.decode('utf-8'))
 
-    searchBtn = driver.find_element_by_xpath("//a[@class='searchBtn']")
-    searchBtn.click()    #采用点击回车直接搜索
-
+    # showFullBtn = driver.find_element_by_xpath("//div[@class='search_rese clearfix']/a[@suda-data='key=tblog_search_weibo&value=weibo_filter_nodup']")
+    # showFullBtn.click()
 
     # #每一天使用一个sheet存储数据
     initDatabase()
     time.sleep(2)
     # #通过构建URL实现每一天的查询
+
 
 
     #
@@ -154,8 +160,14 @@ def handlePage():
                 next_page_btn = driver.find_element_by_xpath("//a[@class='page next S_txt1 S_line1']")
                 next_page_btn.click()
             else:
-                print "已达到最后一页"
-                break
+                driver.execute_script('window.location.reload()')
+                time.sleep(2)
+                if checkNext():
+                    continue
+                else:
+                    print "已达到最后一页"
+                    break
+
         else:
             print "该页面没有数据"
             break
@@ -194,10 +206,10 @@ def initDatabase():
 
     #建表
     #
-    sql = 'CREATE TABLE ' + key + '(博主昵称 char(200), 博主主页 char(200), 微博内容 varchar(10000), 微博认证 char(20), 发布时间 char(20), 转发 int(8), 评论 int(8), 赞 int(8), 粉丝数 int(8) DEFAULT 0) character set = utf8mb4'
-
-    cur.execute(sql)
-    cur.connection.commit()
+    # sql = 'CREATE TABLE ' + key + '(博主昵称 char(200), 博主主页 char(200), 微博内容 varchar(10000), 微博认证 char(20), 发布时间 char(20), 转发 int(8), 评论 int(8), 赞 int(8), 粉丝数 int(8) DEFAULT 0) character set = utf8mb4'
+    #
+    # cur.execute(sql)
+    # cur.connection.commit()
 
 
 #将dic中的内容写入excel
@@ -239,7 +251,7 @@ def writeDatabase(dic):
         cur.connection.commit()
 #在页面有内容的前提下，获取内容
 def getContent():
-
+    time.sleep(2)
     #寻找到每一条微博的class
     nodes = driver.find_elements_by_xpath("//div[@class='WB_cardwrap S_bg2 clearfix']")
 
@@ -319,10 +331,29 @@ def getContent():
         dic[i].append(WBRZ)
 
         try:
-            FBSJ = nodes[i].find_element_by_xpath(".//div[@class='feed_from W_textb']/a[@class='W_textb']").text
+            FBSJ = nodes[i].find_element_by_xpath(".//div[@class='feed_from W_textb']/a[@class='W_textb']").get_attribute('title')
+
         except:
             FBSJ = ''
+
+        if FBSJ == '' :
+            try:
+                FBSJ = nodes[i].find_element_by_xpath(".//div[@class='feed_from W_textb']/a[@suda-data='key=tblog_search_weibo&value=weibo_ss_1_time']").get_attribute('title')
+            except:
+                FBSJ = ''
+
+        if FBSJ == '' :
+            try:
+                FBSJ = nodes[i].find_element_by_xpath(".//div[@class='content clearfix']/div[@class='feed_from W_textb']/a[@class='W_textb']").get_attribute('title')
+            except:
+                FBSJ = ''
+        if FBSJ == '' :
+            try:
+                FBSJ = nodes[i].find_element_by_xpath(".//em/div[@class='feed_from W_textb']/a[@class='W_textb']").get_attribute('title')
+            except:
+                FBSJ = ''
         # print u'发布时间:', FBSJ
+
         dic[i].append(FBSJ)
 
 
@@ -434,7 +465,7 @@ if __name__ == '__main__':
     #搜索热点微博 爬取评论
 
     # key = raw_input("请输入相关话题关键词: ")
-    key = '山东问题疫苗'
+    key = '哈尔滨天价鱼'
     GetSearchContent(key)
 
     global cur

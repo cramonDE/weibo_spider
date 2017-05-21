@@ -80,9 +80,9 @@ def LoginWeibo(username, password):
 
 def GetSearchContent(key):
 
-    driver.set_page_load_timeout(2.5)
+    driver.set_page_load_timeout(5)
     try:
-        driver.get("http://weibo.com/2346569983/F2o1J1ys7?type=repost#_rnd1495036157769")
+        driver.get("http://weibo.com/1497048702/Eu04xD7lc?from=page_1005051497048702_profile&wvr=6&mod=weibotime&type=repost#_rnd1495135384263")
     except Exception as e:
         driver.execute_script('window.stop()')
 
@@ -144,8 +144,13 @@ def handlePage():
                 next_page_btn = driver.find_element_by_xpath("//a[@class='page next S_txt1 S_line1']")
                 next_page_btn.click()
             else:
-                print "已达到最后一页"
-                break
+                driver.execute_script('window.location.reload()')
+                time.sleep(2)
+                if checkNext():
+                    continue
+                else:
+                    print "已达到最后一页"
+                    break
         else:
             print "该页面没有数据"
             break
@@ -183,7 +188,7 @@ def initDatabase():
     cur = conn.cursor()
 
     #建表
-
+    #
     sql = 'CREATE TABLE ' + key + '(博主昵称 char(200), 博主主页 char(200), 内容 varchar(10000), 微博认证 char(20), 发布时间 char(20), 转发 int(8), 赞 int(8), 粉丝数 int(8) DEFAULT 0) character set = utf8mb4'
 
     cur.execute(sql)
@@ -265,11 +270,11 @@ def getContent():
         dic[i].append(BZNC)
 
         try:
-            BZZY = nodes[0].find_element_by_xpath(".//div[@class='WB_text']/a[@node-type='name']").get_attribute("href")
+            BZZY = nodes[i].find_element_by_xpath(".//div[@class='WB_text']/a[@node-type='name']").get_attribute("href")
         except:
             BZZY = ''
         # print u'博主主页:', "http://weibo" + BZZY
-        dic[i].append("http://weibo" + BZZY)
+        dic[i].append(BZZY)
 
 
 
@@ -413,7 +418,7 @@ if __name__ == '__main__':
     #搜索热点微博 爬取评论
 
     # key = raw_input("请输入相关话题关键词: ")
-    key = '北京电影学院性侵'
+    key = '丽江打人'
     GetSearchContent(key)
 
     global cur

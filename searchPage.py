@@ -30,10 +30,10 @@ driver.get("http://weibo.com/2346569983/F2o1J1ys7?type=repost#_rnd1495036157769"
 
 nodes = driver.find_elements_by_xpath("//div[@class='list_li S_line1 clearfix']")
 
-ZF_TEXT = nodes[0].find_element_by_xpath(".//ul[@class='clearfix']/li[2]/span[@class='line S_line1']/a[@class='S_txt1']").text
+ZAN_TEXT = nodes[0].find_element_by_xpath(".//span[@node-type='like_status']/em[]").text #可为空
 
 
-print ZF_TEXT[3:]
+print ZAN_TEXT
 
 
 print "done"

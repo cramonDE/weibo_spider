@@ -79,25 +79,18 @@ def LoginWeibo(username, password):
 #********************************************************************************
 
 def GetSearchContent(key):
-    driver.get("http://s.weibo.com/")
 
-    # driver.get("http://s.weibo.com/weibo/%25E5%25B8%25B8%25E5%25B7%259E%25E5%25A4%2596%25E5%259B%25BD%25E8%25AF%25AD%25E5%25AD%25A6%25E6%25A0%25A1%25E6%25AF%2592%25E5%259C%25B0&scope=ori&suball=1&page=15")
-    # #
-    # #
-    #
-    driver.set_page_load_timeout(2.5)
-
+    driver.set_page_load_timeout(5)
+    try:
+        driver.get("http://weibo.com/jlsgat?profile_ftype=1&is_all=1&is_search=1&key_word=304#_0")
+    except Exception as e:
+        driver.execute_script('window.stop()')
 
 
 
 
-    # 输入关键词并点击搜索
 
-    item_inp = driver.find_element_by_xpath("//input[@class='searchInp_form']")
-    item_inp.send_keys(key.decode('utf-8'))
 
-    searchBtn = driver.find_element_by_xpath("//a[@class='searchBtn']")
-    searchBtn.click()    #采用点击回车直接搜索
 
 
     # #每一天使用一个sheet存储数据
@@ -107,14 +100,14 @@ def GetSearchContent(key):
 
 
     #
-    url = driver.current_url.split('&')[0] + '&scope=ori&suball=1&Refer=g'
-
-    print driver.current_url
-    print driver.current_url.split('&')[0]
-    try:
-        driver.get(url)
-    except Exception as e:
-        driver.execute_script('window.stop()')
+    # url = driver.current_url.split('&')[0] + '&scope=ori&suball=1&Refer=g'
+    #
+    # print driver.current_url
+    # print driver.current_url.split('&')[0]
+    # try:
+    #     driver.get(url)
+    # except Exception as e:
+    #     driver.execute_script('window.stop()')
 
 
 
@@ -139,11 +132,16 @@ def handlePage():
     while True:
         #之前认为可能需要sleep等待页面加载，后来发现程序执行会等待页面加载完毕
         #sleep的原因是对付微博的反爬虫机制，抓取太快可能会判定为机器人，需要输入验证码
-        time.sleep(random.random() * 2 + 1)
+        time.sleep(random.random() * 2 + 3)
+
+        selectBtn = driver.find_element_by_xpath("//select[@node-type='changeLanguage']")
+        selectBtn.click()
+        time.sleep(5)
         #先行判定是否有内容
         if checkContent():
 
             getContent()
+
             #先行判定是否有下一页按钮
             if checkNext():
                 print "下一页"
@@ -151,8 +149,13 @@ def handlePage():
                 next_page_btn = driver.find_element_by_xpath("//a[@class='page next S_txt1 S_line1']")
                 next_page_btn.click()
             else:
-                print "已达到最后一页"
-                break
+                driver.execute_script('window.location.reload()')
+
+                if checkNext():
+                    continue
+                else:
+                    print "已达到最后一页"
+                    break
         else:
             print "该页面没有数据"
             break
@@ -189,11 +192,12 @@ def initDatabase():
     global cur
     cur = conn.cursor()
 
-    #建表
-
-    sql = 'CREATE TABLE ' + key + '(博主昵称 char(200), 博主主页 char(200), 微博内容 varchar(10000), 微博认证 char(20), 发布时间 char(20), 转发 int(8), 评论 int(8), 赞 int(8), 粉丝数 int(8)) character set = utf8mb4'
-    cur.execute(sql)
-    cur.connection.commit()
+    # #建表
+    # #
+    # sql = 'CREATE TABLE ' + key + '(博主昵称 char(200), 内容 varchar(10000), 发布时间 char(20), 转发 int(8), 评论 int(8), 赞 int(8)) character set = utf8mb4'
+    #
+    # cur.execute(sql)
+    # cur.connection.commit()
 
 
 #将dic中的内容写入excel
@@ -208,7 +212,7 @@ def writeDatabase(dic):
 
     for k in range(len(dic)):
 
-        sql = 'INSERT INTO ' + key + '(博主昵称, 博主主页, 微博内容, 微博认证 , 发布时间, 转发, 评论, 赞, 粉丝数) VALUES ('
+        sql = 'INSERT INTO ' + key + '(博主昵称, 内容, 发布时间, 转发, 评论, 赞) VALUES ('
 
         for i in range(len(dic[k])):
             if i == 0:
@@ -217,11 +221,10 @@ def writeDatabase(dic):
                 sql += ', \'' + dic[k][i] + '\''
 
         sql += ')'
-        print sql
         try:
             cur.execute(sql)
         except Exception as e:
-            sql = 'INSERT INTO ' + key + '(博主昵称, 博主主页, 微博内容, 微博认证 , 发布时间, 转发, 评论, 赞, 粉丝数) VALUES ('
+            sql = 'INSERT INTO ' + key + '(博主昵称, 内容, 发布时间, 转发, 评论, 赞) VALUES ('
             for i in range(len(dic[k])):
                 if i == 0:
                     sql += '\"' + dic[k][i] + '\"'
@@ -229,13 +232,16 @@ def writeDatabase(dic):
                     sql += ', "' + dic[k][i] + '\"'
 
             sql += ')'
-            cur.execute(sql)
+            try:
+                cur.execute(sql)
+            except Exception as e:
+                print sql
         cur.connection.commit()
 #在页面有内容的前提下，获取内容
 def getContent():
 
     #寻找到每一条微博的class
-    nodes = driver.find_elements_by_xpath("//div[@class='WB_cardwrap S_bg2 clearfix']")
+    nodes = driver.find_elements_by_xpath("//div[@action-type='feed_list_item']")
 
     #在运行过程中微博数==0的情况，可能是微博反爬机制，需要输入验证码
     if len(nodes) == 0:
@@ -250,7 +256,6 @@ def getContent():
         return
 
     dic = {}
-    fansPage = []
     # global page
     # print str(start_stamp.strftime("%Y-%m-%d-%H"))
     # print u'页数:', page
@@ -263,160 +268,118 @@ def getContent():
         numOFItem = numOFItem + 1
         print '正在写入第', numOFItem, '条记录'
         try:
-            BZNC = nodes[i].find_element_by_xpath(".//div[@class='feed_content wbcon']/a[@class='W_texta W_fb']").text
+            BZNC = nodes[i].find_element_by_xpath(".//div[@class='WB_info']/a[@class='W_f14 W_fb S_txt1']").text
         except:
             BZNC = ''
-        # print u'博主昵称:', BZNC
+        print u'博主昵称:', BZNC
         dic[i].append(BZNC)
 
         try:
-            BZZY = nodes[i].find_element_by_xpath(".//div[@class='feed_content wbcon']/a[@class='W_texta W_fb']").get_attribute("href")
-        except:
-            BZZY = ''
-        # print u'博主主页:', BZZY
-        dic[i].append(BZZY)
-        fansPage.append(BZZY)
-
-        try:
-            fullTextBtn = nodes[i].find_element_by_xpath(".//a[@class='WB_text_opt']")
-            fullTextBtn.click()
-            time.sleep(1)
-            WBNRarr = nodes[i].find_elements_by_xpath(".//div[@class='feed_content wbcon']/p")
-            WBNR = WBNRarr[1].text
-        except:
-            try:
-                WBNR = nodes[i].find_element_by_xpath(".//div[@class='feed_content wbcon']/p[@class='comment_txt']").text
-            except Exception as e:
-                WBNR = ''
-        # print '微博内容:', WBNR
+            WBNR = nodes[i].find_element_by_xpath(".//div[@class='WB_detail']/div[@class='WB_text W_f14']").text
+        except Exception as e:
+            WBNR = ''
+        print '微博内容:', WBNR
         dic[i].append(WBNR)
 
-        try:
-            WBRZ = nodes[i].find_element_by_xpath(".//div[@class='feed_content wbcon']/a[@class='W_icon icon_approve']").get_attribute('title')#若没有认证则不存在节点
-            print WBRZ
-        except:
-            WBRZ = ''
-
-        if WBRZ == '':
-            try:
-                WBRZ = nodes[i].find_element_by_xpath(".//div[@class='feed_content wbcon']/a[@class='W_icon icon_approve_co']").get_attribute('title')#若没有认证则不存在节点
-                print WBRZ
-            except:
-                WBRZ = ''
-
-
-        if WBRZ == '':
-            try:
-                WBRZ = nodes[i].find_element_by_xpath(".//div[@class='feed_content wbcon']/a[@class='W_icon icon_approve_gold']").get_attribute('title')#若没有认证则不存在节点
-                WBRZ += '(gold)'
-                print WBRZ
-            except:
-                WBRZ = ''
-
-
-        # print '微博认证:', WBRZ
-        dic[i].append(WBRZ)
 
         try:
-            FBSJ = nodes[i].find_element_by_xpath(".//div[@class='feed_from W_textb']/a[@class='W_textb']").text
+            FBSJ = nodes[i].find_element_by_xpath(".//div[@class='WB_from S_txt2']/a[@class = 'S_txt2']").get_attribute('title')
         except:
             FBSJ = ''
-        # print u'发布时间:', FBSJ
+        print u'发布时间:', FBSJ
         dic[i].append(FBSJ)
 
 
         try:
-            ZF_TEXT = nodes[i].find_element_by_xpath(".//a[@action-type='feed_list_forward']//em").text
+            ZF_TEXT = nodes[i].find_element_by_xpath(".//ul[@class='WB_row_line WB_row_r4 clearfix S_line2']/li[2]//em[2]").text
             if ZF_TEXT == '':
                 ZF = 0
             else:
                 ZF = int(ZF_TEXT)
         except:
             ZF = 0
-        # print '转发:', ZF
+        print '转发:', ZF
         dic[i].append(str(ZF))
 
         try:
-            PL_TEXT = nodes[i].find_element_by_xpath(".//a[@action-type='feed_list_comment']//em").text#可能没有em元素
-            if PL_TEXT == '':
-                PL = 0
+            PINGLUN_TEXT = nodes[i].find_element_by_xpath(".//ul[@class='WB_row_line WB_row_r4 clearfix S_line2']/li[3]//em[2]").text #可为空
+            if PINGLUN_TEXT == '':
+                PINGLUN = 0
             else:
-                PL = int(PL_TEXT)
+                PINGLUN = int(PINGLUN_TEXT)
         except:
-            PL = 0
-        # print '评论:', PL
-        dic[i].append(str(PL))
+            PINGLUN = 0
+        print '评论:', PINGLUN
+        dic[i].append(str(PINGLUN))
 
         try:
-            ZAN_TEXT = nodes[i].find_element_by_xpath(".//a[@action-type='feed_list_like']//em").text #可为空
+            ZAN_TEXT = nodes[i].find_element_by_xpath(".//ul[@class='WB_row_line WB_row_r4 clearfix S_line2']/li[4]//em[2]").text #可为空
             if ZAN_TEXT == '':
                 ZAN = 0
             else:
                 ZAN = int(ZAN_TEXT)
         except:
             ZAN = 0
-        # print '赞:', ZAN
+        print '赞:', ZAN
         dic[i].append(str(ZAN))
 
         # print '\n'
 
-    #写入Excel
-    current_url = driver.current_url
-    for i in range(len(fansPage)) :
-        url = fansPage[i]
-        try:
-            driver.get(url)
 
-        except Exception as e:
-            driver.execute_script('window.stop()')
-
-        if (dic[i][3] == "微博机构认证"):
-            print "jigou"
-            searchEMs = "//td[@class='S_line1']"
-        else:
-            searchEMs = "//a[@class='t_link S_txt1']"
-        if (dic[i][3] == "微博个人认证(gold)"):
-            print "gold"
-            searchEM = ".//strong[@class='W_f14']"
-        else:
-            searchEM = ".//strong[@class='W_f18']"
-        FANS = driver.find_elements_by_xpath(searchEMs)
-
-        try:
-            FAN = FANS[1].find_element_by_xpath(searchEM).text
-        except Exception as e:
-
-            driver.execute_script('window.location.reload()')
-
-
-            FANS = driver.find_elements_by_xpath(searchEMs)
-            try:
-                FAN = FANS[1].find_element_by_xpath(searchEM).text
-            except Exception as e:
-                time.sleep(3)
-                FANS = driver.find_elements_by_xpath(searchEMs)
-                try:
-                    FAN = FANS[1].find_element_by_xpath(searchEM).text
-                except Exception as e:
-                    searchEM = ".//strong[@class='W_f16']"
-                    try:
-                        FAN = FANS[1].find_element_by_xpath(searchEM).text
-                    except Exception as e:
-                        searchEM = ".//strong[@class='W_f14']"
-                        try:
-                            FAN = FANS[1].find_element_by_xpath(searchEM).text
-                        except Exception as e:
-                            searchEM = ".//strong[@class='W_f12']"
-                            try:
-                                FAN = FANS[1].find_element_by_xpath(searchEM).text
-                            except Exception as e:
-                                FAN = 0
-        print FAN
-        dic[i].append(str(FAN))
-    try:
-        driver.get(current_url)
-    except Exception as e:
-        driver.execute_script('window.stop()')
+    #     url = fansPage[i]
+    #     try:
+    #         driver.get(url)
+    #
+    #     except Exception as e:
+    #         driver.execute_script('window.stop()')
+    #
+    #     if (dic[i][3] == "微博机构认证"):
+    #         print "jigou"
+    #         searchEMs = "//td[@class='S_line1']"
+    #     else:
+    #         searchEMs = "//a[@class='t_link S_txt1']"
+    #     if (dic[i][3] == "微博个人认证(gold)"):
+    #         print "gold"
+    #         searchEM = ".//strong[@class='W_f14']"
+    #     else:
+    #         searchEM = ".//strong[@class='W_f18']"
+    #     FANS = driver.find_elements_by_xpath(searchEMs)
+    #
+    #     try:
+    #         FAN = FANS[1].find_element_by_xpath(searchEM).text
+    #     except Exception as e:
+    #
+    #         driver.execute_script('window.location.reload()')
+    #
+    #
+    #         FANS = driver.find_elements_by_xpath(searchEMs)
+    #         try:
+    #             FAN = FANS[1].find_element_by_xpath(searchEM).text
+    #         except Exception as e:
+    #             time.sleep(3)
+    #             FANS = driver.find_elements_by_xpath(searchEMs)
+    #             try:
+    #                 FAN = FANS[1].find_element_by_xpath(searchEM).text
+    #             except Exception as e:
+    #                 searchEM = ".//strong[@class='W_f16']"
+    #                 try:
+    #                     FAN = FANS[1].find_element_by_xpath(searchEM).text
+    #                 except Exception as e:
+    #                     searchEM = ".//strong[@class='W_f14']"
+    #                     try:
+    #                         FAN = FANS[1].find_element_by_xpath(searchEM).text
+    #                     except Exception as e:
+    #                         searchEM = ".//strong[@class='W_f12']"
+    #                         try:
+    #                             FAN = FANS[1].find_element_by_xpath(searchEM).text
+    #                         except Exception as e:
+    #                             FAN = 0
+    #     print FAN
+        # dic[i].append("")
+    # try:
+    #     driver.get(current_url)
+    # except Exception as e:
+    #     driver.execute_script('window.stop()')
 
     writeDatabase(dic)
 
@@ -435,7 +398,7 @@ if __name__ == '__main__':
     #搜索热点微博 爬取评论
 
     # key = raw_input("请输入相关话题关键词: ")
-    key = '中关村二小校园欺凌'
+    key = '吉林警事'
     GetSearchContent(key)
 
     global cur
