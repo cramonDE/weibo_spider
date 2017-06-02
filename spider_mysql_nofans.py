@@ -1,17 +1,5 @@
 # coding=utf-8
 
-"""
-Created on 2016-04-28
-@author: xuzhiyuan
-
-功能: 爬取新浪微博的搜索结果,支持高级搜索中对搜索时间的限定
-网址：http://s.weibo.com/
-实现：采取selenium测试工具，模拟微博登录，结合PhantomJS/Firefox，分析DOM节点后，采用Xpath对节点信息进行获取，实现重要信息的抓取
-
-写入数据库的版本
-
-"""
-
 import time
 import datetime
 import re
@@ -24,7 +12,6 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 import selenium.webdriver.support.ui as ui
 from selenium.webdriver.common.action_chains import ActionChains
-import xlwt
 import pymysql
 import random
 from selenium.common.exceptions import TimeoutException
@@ -35,15 +22,8 @@ if sys.getdefaultencoding() != defaultencoding:
     reload(sys)
     sys.setdefaultencoding(defaultencoding)
 
-#先调用无界面浏览器PhantomJS或Firefox
-#driver = webdriver.PhantomJS()
-driver = webdriver.Firefox()
 
-#********************************************************************************
-#                            第一步: 登陆login.sina.com
-#                     这是一种很好的登陆方式，有可能有输入验证码
-#                          登陆之后即可以登陆方式打开网页
-#********************************************************************************
+driver = webdriver.Firefox()
 
 def LoginWeibo(username, password):
     try:
@@ -59,90 +39,62 @@ def LoginWeibo(username, password):
 
         time.sleep(3)
 
-        #获取Coockie 推荐资料：http://www.cnblogs.com/fnng/p/3269450.html
-        print 'Crawl in ', driver.current_url
-        print u'输出Cookie键值对信息:'
-        for cookie in driver.get_cookies():
-            print cookie
-            for key in cookie:
-                print key, cookie[key]
-        print u'登陆成功...'
     except Exception,e:
         print "Error: ",e
     finally:
         print u'End LoginWeibo!\n'
 
-#********************************************************************************
-#                  第二步: 访问http://s.weibo.com/页面搜索结果
-#               输入关键词、时间范围，得到所有微博信息、博主信息等
-#                     考虑没有搜索结果、翻页效果的情况
-#********************************************************************************
 
 def GetSearchContent(key):
-    # driver.get("http://s.weibo.com/")
+    driver.get("http://s.weibo.com/")
 
 
-    driver.get("http://s.weibo.com/weibo/%25E5%2593%2588%25E5%25B0%2594%25E6%25BB%25A8%25E5%25A4%25A9%25E4%25BB%25B7%25E9%25B1%25BC&nodup=1&page=49")
+    # driver.get("http://s.weibo.com/weibo/%25E5%2593%2588%25E5%25B0%2594%25E6%25BB%25A8%25E5%25A4%25A9%25E4%25BB%25B7%25E9%25B1%25BC&nodup=1&page=49")
     # driver.get("")
 
 
-    # driver.set_page_load_timeout(3)
+    driver.set_page_load_timeout(3)
 
 
 
 
-    # 输入关键词并点击搜索
-    #
-    # item_inp = driver.find_element_by_xpath("//input[@class='searchInp_form']")
-    # item_inp.send_keys(key.decode('utf-8'))
-    #
-    # searchBtn = driver.find_element_by_xpath("//a[@class='searchBtn']")
-    # searchBtn.click()    #采用点击回车直接搜索
 
 
-    # showFullBtn = driver.find_element_by_xpath("//div[@class='search_rese clearfix']/a[@suda-data='key=tblog_search_weibo&value=weibo_filter_nodup']")
-    # showFullBtn.click()
+    item_inp = driver.find_element_by_xpath("//input[@class='searchInp_form']")
+    item_inp.send_keys(key.decode('utf-8'))
 
-    # #每一天使用一个sheet存储数据
+    searchBtn = driver.find_element_by_xpath("//a[@class='searchBtn']")
+    searchBtn.click()    #采用点击回车直接搜索
+
+
+    showFullBtn = driver.find_element_by_xpath("//div[@class='search_rese clearfix']/a[@suda-data='key=tblog_search_weibo&value=weibo_filter_nodup']")
+    showFullBtn.click()
+
     initDatabase()
     time.sleep(2)
-    # #通过构建URL实现每一天的查询
 
 
-
-    #
-    # url = driver.current_url.split('&')[0] + '&scope=ori&suball=1&Refer=g'
-    #
-    # print driver.current_url
-    # print driver.current_url.split('&')[0]
-    # try:
-    #     driver.get(url)
-    # except Exception as e:
-    #     driver.execute_script('window.stop()')
-
-
+#
 
     #
-    # http://s.weibo.com/weibo/%25E5%2593%2588%25E5%25B0%2594%25E6%25BB%25A8%25E5%25A4%25A9%25E4%25BB%25B7%25E9%25B1%25BC&Refer=STopic_box
-    #
-    # http://s.weibo.com/weibo/%25E5%2593%2588%25E5%25B0%2594%25E6%25BB%25A8%25E5%25A4%25A9%25E4%25BB%25B7%25E9%25B1%25BC&scope=ori&suball=1&Refer=g
+    url = driver.current_url.split('&')[0] + '&scope=ori&suball=1&Refer=g'
+
+    print driver.current_url
+    print driver.current_url.split('&')[0]
+    try:
+        driver.get(url)
+    except Exception as e:
+        driver.execute_script('window.stop()')
+
 
     handlePage()  #处理当前页面内容
 
-        # start_stamp = end_stamp
-        # end_stamp = end_stamp + delta_date
 
-#********************************************************************************
-#                  辅助函数，考虑页面加载完成后得到页面所需要的内容
-#********************************************************************************
-
-#页面加载完成后，对页面内容进行处理
 def handlePage():
     global numOFItem
     numOFItem = 0
     while True:
-        #之前认为可能需要sleep等待页面加载，后来发现程序执行会等待页面加载完毕
-        #sleep的原因是对付微博的反爬虫机制，抓取太快可能会判定为机器人，需要输入验证码
+
 
         if (numOFItem > 500):
             time.sleep(random.random() * 2 + 5)
@@ -174,8 +126,7 @@ def handlePage():
 
 #判断页面加载完成后是否有内容
 def checkContent():
-    #有内容的前提是有“导航条”？错！只有一页内容的也没有导航条
-    #但没有内容的前提是有“pl_noresult”
+
     try:
         driver.find_element_by_xpath("//div[@class='pl_noresult']")
         flag = False
@@ -212,15 +163,9 @@ def initDatabase():
     # cur.connection.commit()
 
 
-#将dic中的内容写入excel
 def writeDatabase(dic):
     global cur
 
-    # for k in dic:
-    #     for i in range(len(dic[k])):
-    #         sheet.write(row, i, dic[k][i])
-    #     row = row + 1
-    # outfile.save("./crawl_output_YS.xls")
 
     for k in range(len(dic)):
 
@@ -255,7 +200,6 @@ def getContent():
     #寻找到每一条微博的class
     nodes = driver.find_elements_by_xpath("//div[@class='WB_cardwrap S_bg2 clearfix']")
 
-        #在运行过程中微博数==0的情况，可能是微博反爬机制，需要输入验证码
     if len(nodes) == 0:
         # raw_input("请在微博页面输入验证码！")
         url = driver.current_url
@@ -264,11 +208,7 @@ def getContent():
         return
     dic = {}
     fansPage = []
-        # global page
-    # print str(start_stamp.strftime("%Y-%m-%d-%H"))
-    # print u'页数:', page
-    # page = page + 1
-    # print u'微博数量', len(nodes)
+
 
     for i in range(len(nodes)):
         dic[i] = []
@@ -390,69 +330,10 @@ def getContent():
         # print '赞:', ZAN
         dic[i].append(str(ZAN))
 
-        # print '\n'
 
-
-    #     url = fansPage[i]
-    #     try:
-    #         driver.get(url)
-    #
-    #     except Exception as e:
-    #         driver.execute_script('window.stop()')
-    #
-    #     if (dic[i][3] == "微博机构认证"):
-    #         print "jigou"
-    #         searchEMs = "//td[@class='S_line1']"
-    #     else:
-    #         searchEMs = "//a[@class='t_link S_txt1']"
-    #     if (dic[i][3] == "微博个人认证(gold)"):
-    #         print "gold"
-    #         searchEM = ".//strong[@class='W_f14']"
-    #     else:
-    #         searchEM = ".//strong[@class='W_f18']"
-    #     FANS = driver.find_elements_by_xpath(searchEMs)
-    #
-    #     try:
-    #         FAN = FANS[1].find_element_by_xpath(searchEM).text
-    #     except Exception as e:
-    #
-    #         driver.execute_script('window.location.reload()')
-    #
-    #
-    #         FANS = driver.find_elements_by_xpath(searchEMs)
-    #         try:
-    #             FAN = FANS[1].find_element_by_xpath(searchEM).text
-    #         except Exception as e:
-    #             time.sleep(3)
-    #             FANS = driver.find_elements_by_xpath(searchEMs)
-    #             try:
-    #                 FAN = FANS[1].find_element_by_xpath(searchEM).text
-    #             except Exception as e:
-    #                 searchEM = ".//strong[@class='W_f16']"
-    #                 try:
-    #                     FAN = FANS[1].find_element_by_xpath(searchEM).text
-    #                 except Exception as e:
-    #                     searchEM = ".//strong[@class='W_f14']"
-    #                     try:
-    #                         FAN = FANS[1].find_element_by_xpath(searchEM).text
-    #                     except Exception as e:
-    #                         searchEM = ".//strong[@class='W_f12']"
-    #                         try:
-    #                             FAN = FANS[1].find_element_by_xpath(searchEM).text
-    #                         except Exception as e:
-    #                             FAN = 0
-    #     print FAN
-        # dic[i].append("")
-    # try:
-    #     driver.get(current_url)
-    # except Exception as e:
-    #     driver.execute_script('window.stop()')
 
     writeDatabase(dic)
 
-#*******************************************************************************
-#                                程序入口
-#*******************************************************************************
 if __name__ == '__main__':
 
     #定义变量
@@ -462,9 +343,7 @@ if __name__ == '__main__':
     #操作函数
     LoginWeibo(username, password)       #登陆微博
 
-    #搜索热点微博 爬取评论
 
-    # key = raw_input("请输入相关话题关键词: ")
     key = '哈尔滨天价鱼'
     GetSearchContent(key)
 
